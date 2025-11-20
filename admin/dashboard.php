@@ -34,7 +34,7 @@ include '../components/connection.php';
            <h1 class="heading">dshboard</h1>
            <div class="box-container">
             <div class="box">
-            <h3>welcome!</h3>
+            <h3>chào mừng!</h3>
             <p><?=$fetch_profile['name'];?></p>
             <a href="" class="btn">profile</a>
             </div>
@@ -45,8 +45,8 @@ include '../components/connection.php';
             $num_of_products = $select_product->rowCount();
             ?>
             <h3><?=$num_of_products;?></h3>
-            <p>product added</p>
-            <a href="add_products.php"class="btn">add new products</a>
+            <p>sản phẩm được thêm vào</p>
+            <a href="add_products.php"class="btn">thêm sản phẩm mới</a>
             </div>
             <div class="box">    
             <?php
@@ -55,8 +55,8 @@ include '../components/connection.php';
             $num_of_active_products = $select_active_product->rowCount();
             ?>
             <h3><?=$num_of_active_products;?></h3>
-            <p>total active products </p>
-            <a href="view_product.php"class="btn">view active products </a>
+            <p>tổng sản phẩm đang hoạt động </p>
+            <a href="active_products.php"class="btn">xem sản phẩm đang hoạt động </a>
            </div>
             <div class="box">    
             <?php
@@ -65,8 +65,8 @@ include '../components/connection.php';
             $num_of_deactive_products = $select_deactive_product->rowCount();
             ?>
             <h3><?=$num_of_deactive_products;?></h3>
-            <p>total deactive products</p>
-            <a href="view_product.php"class="btn">view deactive products</a>
+            <p>tổng số sản phẩm không hoạt động</p>
+            <a href="inactive_products.php"class="btn">xem sản phẩm không hoạt động</a>
             </div>
             <div class="box">    
             <?php
@@ -75,8 +75,8 @@ include '../components/connection.php';
             $num_of_users = $select_users->rowCount();
             ?>
             <h3><?=$num_of_users;?></h3>
-            <p>registered users</p>
-            <a href="user_account.php"class="btn">view users</a>
+            <p>người dùng đã đăng ký</p>
+            <a href="user_account.php"class="btn">xem người dùng</a>
             </div>
              <div class="box">    
             <?php
@@ -85,8 +85,8 @@ include '../components/connection.php';
             $num_of_admin = $select_admin->rowCount();
             ?>
             <h3><?=$num_of_admin;?></h3>
-            <p>registered admin</p>
-            <a href="acount.php"class="btn">view admin</a>
+            <p>admin đã đăng ký</p>
+            <a href="admin_acount.php"class="btn">xem admin</a>
             </div>
             <div class="box">    
             <?php
@@ -95,8 +95,8 @@ include '../components/connection.php';
             $num_of_message = $select_message->rowCount();
             ?>
             <h3><?=$num_of_message;?></h3>
-            <p>unread message</p>
-            <a href="admin_message.php"class="btn">view message</a>
+            <p>Tin nhắn khách hàng</p>
+            <a href="admin_message.php"class="btn">xem tin nhắn</a>
             </div>
             <div class="box">    
             <?php
@@ -105,8 +105,8 @@ include '../components/connection.php';
             $num_of_orders = $select_orders->rowCount();
             ?>
             <h3><?=$num_of_orders;?></h3>
-            <p>total orders placed</p>
-            <a href="order.php"class="btn">view orders</a>
+            <p>tổng số đơn đặt hàng</p>
+            <a href="order.php"class="btn">xem đơn hàng</a>
             </div>
             <div class="box">    
             <?php
@@ -115,8 +115,8 @@ include '../components/connection.php';
             $num_of_comfirm_orders = $select_comfirm_orders->rowCount();
             ?>
             <h3><?=$num_of_comfirm_orders;?></h3>
-            <p>total comfirmorders</p>
-            <a href="order.php"class="btn">view  comfirm orders</a>
+            <p>tổng số đơn hàng xác nhận</p>
+            <a href="order.php"class="btn">xem xác nhận đơn hàng</a>
             </div>
             <div class="box">    
             <?php
@@ -125,9 +125,21 @@ include '../components/connection.php';
             $num_of_canceled_orders = $select_comfirm_orders->rowCount();
             ?>
             <h3><?=$num_of_comfirm_orders;?></h3>
-            <p>total canceled orders</p>
-            <a href="order.php"class="btn">view  canceled orders</a>
+            <p>tổng số đơn hàng bị hủy</p>
+            <a href="order.php"class="btn">xem tổng số đơn hàng bị hủy</a>
             </div> 
+             <div class="box">    
+              <?php
+             $select_coupons = $conn->prepare("SELECT * FROM coupons");
+             $select_coupons->execute();
+             $num_of_coupons = $select_coupons->rowCount();
+              ?>
+    
+             <h3><?= $num_of_coupons; ?></h3>
+             <p>Tổng số mã giảm giá</p>
+             <a href="coupons.php" class="btn">Xem mã giảm giá</a>
+            </div>
+
            </div>
         </section>
     </div>

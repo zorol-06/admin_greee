@@ -16,36 +16,44 @@ if (!$admin_id) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <link rel="stylesheet" type="text/css" href="admin_style.css?v=<?php echo time(); ?>">
-    <title>Green Coffee Admin Panel - Người dùng đã đăng ký</title> </head>
+    <title>Green Coffee Admin Panel - Registered Admin</title>
+</head>
 <body>
 
 <?php include '../components/admin_header.php'; ?>
 
 <div class="main">
     <div class="banner">  
-        <h1>Người dùng đã đăng ký</h1> </div>
+        <h1>Quản Trị Viên  </h1>
+    </div>
 
     <div class="title2">
-        <a href="dashboard.php">Bảng điều khiển</a><span> / Người dùng đã đăng ký</span> </div>
+        <a href="dashboard.php">Dashboard</a><span> / Quản Trị Viên </span>
+    </div>
 
     <section class="accounts">
-        <h1 class="heading">Người dùng đã đăng ký</h1> <div class="box-container">
+        <h1 class="heading">Quản Trị Viên  </h1>
+        <div class="box-container">
         <?php   
-            $select_users = $conn->prepare("SELECT * FROM users");
-            $select_users->execute();
+            $select_admin = $conn->prepare("SELECT * FROM admin");
+            $select_admin->execute();
 
-            if ($select_users->rowCount() > 0) {
-                while ($fetch_users = $select_users->fetch(PDO::FETCH_ASSOC)) {      
-                    $user_id = $fetch_users['id'];        
+            if ($select_admin->rowCount() > 0) {
+                while ($fetch_admin = $select_admin->fetch(PDO::FETCH_ASSOC)) {    
+                    $admin_id = $fetch_admin['id'];      
         ?>
             <div class="box">
-                <p>Mã người dùng ID : <span><?= htmlspecialchars($user_id); ?></span></p> <p>Tên người dùng : <span><?= htmlspecialchars($fetch_users['name']); ?></span></p> <p>Email người dùng : <span><?= htmlspecialchars($fetch_users['email']); ?></span></p> </div>
+                <p>Admin ID : <span><?= htmlspecialchars($admin_id); ?></span></p>
+                <p>Admin Name : <span><?= htmlspecialchars($fetch_admin['name']); ?></span></p>
+                <p>Admin Email : <span><?= htmlspecialchars($fetch_admin['email']); ?></span></p>
+            </div>
         <?php
                 }
             } else {
                 echo '
                 <div class="empty">
-                    <p>Chưa có người dùng nào đăng ký!</p> </div>';
+                    <p>No Registered Admin yet!</p>
+                </div>';
             }
         ?>
         </div>

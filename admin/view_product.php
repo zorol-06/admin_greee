@@ -11,9 +11,13 @@ if (!$admin_id) {
 // Xóa sản phẩm
 if(isset($_POST['delete'])){
     $p_id = filter_var($_POST['product_id'], FILTER_SANITIZE_STRING);
+
+    // *CẢI THIỆN LOGIC*: Thêm logic xóa ảnh liên quan nếu có (như đã thấy trong các file khác)
+    // Hiện tại chỉ xóa dòng khỏi DB, cần bổ sung logic này để tránh rác hệ thống (tùy thuộc vào thiết kế ban đầu)
+    
     $delete_product = $conn->prepare("DELETE FROM products WHERE id = ?");
     $delete_product->execute([$p_id]);
-    $success_msg[] = 'Product deleted successfully';
+    $success_msg[] = 'Sản phẩm đã được xóa thành công'; // ĐÃ CHUYỂN VIỆT HÓA
 }
 ?>
 
@@ -22,27 +26,22 @@ if(isset($_POST['delete'])){
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- boxicons cdn link -->
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <link rel="stylesheet" type="text/css" href="admin_style.css?v=<?php echo time(); ?>">
-    <title>Green Coffee Admin Panel - All Products</title>
-</head>
+    <title>Green Coffee Admin Panel - Tất cả Sản phẩm</title> </head>
 <body>
 
 <?php include '../components/admin_header.php'; ?>
 
 <div class="main">
     <div class="banner">  
-        <h1>All Products</h1>
-    </div>
+        <h1>Tất cả Sản phẩm</h1> </div>
 
     <div class="title2">
-        <a href="dashboard.php">Dashboard</a><span> / All Products</span>
-    </div>
+        <a href="dashboard.php">Bảng điều khiển</a><span> / Tất cả Sản phẩm</span> </div>
 
     <section class="show-post">
-        <h1 class="heading">All Products</h1>
-        <div class="box-container">
+        <h1 class="heading">Tất cả Sản phẩm</h1> <div class="box-container">
         <?php
         $select_products = $conn->prepare("SELECT * FROM products");
         $select_products->execute();
@@ -51,25 +50,21 @@ if(isset($_POST['delete'])){
             while ($fetch_products = $select_products->fetch(PDO::FETCH_ASSOC)) {
         ?>
             <form action="" method="post" class="box">
-                <input type="hidden" name="product_id" value="<?= $fetch_products['id']; ?>">
+                <input type="hidden" name="product_id" value="<?= htmlspecialchars($fetch_products['id']); ?>">
 
                 <?php if (!empty($fetch_products['image'])): ?> 
-                    <img src="../image/<?= htmlspecialchars($fetch_products['image']); ?>" class="image">
+                    <img src="../image/<?= htmlspecialchars($fetch_products['image']); ?>" class="image" alt="Hình ảnh sản phẩm">
                 <?php endif; ?>        
 
                 <div class="status" style="color: <?= $fetch_products['status'] == 'active' ? 'green' : 'red'; ?>">
-                    <?= htmlspecialchars($fetch_products['status']); ?>
+                    <?= ($fetch_products['status'] == 'active' ? 'còn hàng' : 'hết hàng'); ?>
                 </div>
 
-                <div class="price">$<?= $fetch_products['price']; ?>-</div>
-                <div class="title"><?= $fetch_products['name'];?></div>
+                <div class="price">$<?= htmlspecialchars($fetch_products['price']); ?>-</div>
+                <div class="title"><?= htmlspecialchars($fetch_products['name']);?></div>
 
                 <div class="flex-btn">
-                    <!-- Fix link edit và view -->
-                    <a href="edit_product.php?id=<?= $fetch_products['id']; ?>" class="btn">edit</a>
-                    <button type="submit" name="delete" class="btn" onclick="return confirm('Delete this product?');">delete</button>
-                    <a href="read_product.php?post_id=<?= $fetch_products['id']; ?>" class="btn">view</a>
-                </div>
+                    <a href="edit_product.php?id=<?= htmlspecialchars($fetch_products['id']); ?>" class="btn">chỉnh sửa</a> <button type="submit" name="delete" class="btn" onclick="return confirm('Bạn có chắc chắn muốn xóa sản phẩm này không?');">xóa</button> <a href="read_product.php?post_id=<?= htmlspecialchars($fetch_products['id']); ?>" class="btn">xem</a> </div>
 
             </form>
         <?php
@@ -77,19 +72,15 @@ if(isset($_POST['delete'])){
         } else {
             echo '
             <div class="empty">
-                <p>No product added yet! <br> <a href="add_products.php" style="margin-top:1.5rem;" class="btn">Add product</a></p>
-            </div>';
+                <p>Chưa có sản phẩm nào được thêm! <br> <a href="add_products.php" style="margin-top:1.5rem;" class="btn">Thêm sản phẩm</a></p> </div>';
         }
-        ?>   
+        ?>  
         </div>
     </section>
 </div>
 
-<!-- sweetalert cdn link -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/sweetalert/2.1.2/sweetalert.min.js"></script>
-<!-- custom js link -->
 <script type="text/javascript" src="script.js"></script>
-<!-- alert -->
 <?php include '../components/alert.php'; ?>
 
 </body>
