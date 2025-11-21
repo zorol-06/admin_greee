@@ -108,26 +108,27 @@ include '../components/connection.php';
             <p>tổng số đơn đặt hàng</p>
             <a href="order.php"class="btn">xem đơn hàng</a>
             </div>
-            <div class="box">    
-            <?php
-            $select_comfirm_orders = $conn->prepare("SELECT * FROM orders WHERE status = ?");
-            $select_comfirm_orders->execute(['in progress']);
-            $num_of_comfirm_orders = $select_comfirm_orders->rowCount();
-            ?>
-            <h3><?=$num_of_comfirm_orders;?></h3>
-            <p>tổng số đơn hàng xác nhận</p>
-            <a href="order.php"class="btn">xem xác nhận đơn hàng</a>
-            </div>
-            <div class="box">    
-            <?php
-            $select_canceled_orders = $conn->prepare("SELECT * FROM orders WHERE status = ?");
-            $select_canceled_orders->execute(['canceled']);
-            $num_of_canceled_orders = $select_comfirm_orders->rowCount();
-            ?>
-            <h3><?=$num_of_comfirm_orders;?></h3>
-            <p>tổng số đơn hàng bị hủy</p>
-            <a href="order.php"class="btn">xem tổng số đơn hàng bị hủy</a>
-            </div> 
+         <div class="box">    
+    <?php
+    $select_completed_orders = $conn->prepare("SELECT * FROM orders WHERE status = ? AND payment_status = ?");
+    $select_completed_orders->execute(['delivered', 'complete']);
+    $num_of_completed_orders = $select_completed_orders->rowCount();
+    ?>
+    <h3><?= $num_of_completed_orders; ?></h3>
+    <p>Tổng số đơn hàng hoàn tất</p>
+    <a href="completed_orders.php" class="btn">Xem đơn hàng hoàn tất</a>
+</div>
+           <div class="box">    
+    <?php
+    
+    $select_canceled_orders = $conn->prepare("SELECT * FROM orders WHERE status = ?");
+    $select_canceled_orders->execute(['cancelled']);
+    $num_of_canceled_orders = $select_canceled_orders->rowCount();
+    ?>
+    <h3><?= $num_of_canceled_orders; ?></h3>
+    <p>Tổng số đơn hàng bị hủy</p>
+    <a href="cancelled_orders.php" class="btn">Xem tổng số đơn hàng bị hủy</a>
+</div>
              <div class="box">    
               <?php
              $select_coupons = $conn->prepare("SELECT * FROM coupons");

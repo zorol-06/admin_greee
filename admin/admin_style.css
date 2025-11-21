@@ -578,6 +578,41 @@ header.scrolled a:hover{
 .delete-btn:hover {
     background: #c0392b !important;
 }
+/*-----completed----*/
+
+.stats-container {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.stats-number {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #28a745;
+}
+
+.revenue-number {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: #17a2b8;
+}
+
+.status-completed {
+    color: #28a745;
+    font-weight: bold;
+    background: #d4edda;
+    padding: 5px 10px;
+    border-radius: 4px;
+    display: inline-block;
+    margin-bottom: 10px;
+}
+
+.box-completed {
+    border-left: 4px solid #28a745 !important;
+}
 /*------media screen------*/
 @media(max-width: 991px){
     #menu-btn{

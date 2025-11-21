@@ -8,80 +8,115 @@ if (!$admin_id) {
     exit;
 }
 
-// Lấy dữ liệu doanh thu
+// Xử lý chọn năm
+$selected_year = isset($_GET['year']) ? (int)$_GET['year'] : date('Y');
+$current_year = date('Y');
+
+// Lấy danh sách các năm có dữ liệu
+try {
+    $years_sql = "SELECT DISTINCT YEAR(`date`) as year FROM orders ORDER BY year DESC";
+    $years_stmt = $conn->query($years_sql);
+    $available_years = $years_stmt->fetchAll(PDO::FETCH_COLUMN);
+} catch (Exception $e) {
+    $available_years = [$current_year];
+}
+
+// Lấy dữ liệu doanh thu theo năm được chọn
 try {
     // Tổng doanh thu
     $total_revenue_sql = "SELECT SUM(price * qty) AS total_revenue FROM orders WHERE payment_status = 'complete'";
     $total_revenue_stmt = $conn->query($total_revenue_sql);
     $total_revenue = $total_revenue_stmt->fetch(PDO::FETCH_ASSOC)['total_revenue'] ?? 0;
 
-    // Doanh thu tháng này
-    $current_month_sql = "SELECT SUM(price * qty) AS monthly_revenue 
+    // Doanh thu năm được chọn
+    $yearly_revenue_sql = "SELECT SUM(price * qty) AS yearly_revenue 
                           FROM orders 
                           WHERE payment_status = 'complete' 
-                          AND MONTH(`date`) = MONTH(CURRENT_DATE()) 
-                          AND YEAR(`date`) = YEAR(CURRENT_DATE())";
-    $current_month_stmt = $conn->query($current_month_sql);
-    $monthly_revenue = $current_month_stmt->fetch(PDO::FETCH_ASSOC)['monthly_revenue'] ?? 0;
+                          AND YEAR(`date`) = ?";
+    $yearly_revenue_stmt = $conn->prepare($yearly_revenue_sql);
+    $yearly_revenue_stmt->execute([$selected_year]);
+    $yearly_revenue = $yearly_revenue_stmt->fetch(PDO::FETCH_ASSOC)['yearly_revenue'] ?? 0;
 
-    // Doanh thu 12 tháng gần nhất
+    // Doanh thu 12 tháng của năm được chọn
     $monthly_revenue_sql = "SELECT 
-                            YEAR(`date`) as revenue_year,
                             MONTH(`date`) as revenue_month,
                             DATE_FORMAT(`date`, '%Y-%m') as revenue_period,
                             SUM(price * qty) as monthly_revenue
                         FROM orders 
                         WHERE payment_status = 'complete' 
-                        AND `date` >= DATE_SUB(CURRENT_DATE(), INTERVAL 12 MONTH)
-                        GROUP BY revenue_year, revenue_month
-                        ORDER BY revenue_year, revenue_month";
+                        AND YEAR(`date`) = ?
+                        GROUP BY revenue_month, revenue_period
+                        ORDER BY revenue_month";
 
-    $monthly_revenue_stmt = $conn->query($monthly_revenue_sql);
-    $monthly_revenues = $monthly_revenue_stmt->fetchAll(PDO::FETCH_ASSOC);
+    $monthly_revenue_stmt = $conn->prepare($monthly_revenue_sql);
+    $monthly_revenue_stmt->execute([$selected_year]);
+    $monthly_revenues_raw = $monthly_revenue_stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Doanh thu theo sản phẩm
+    // Tạo mảng đầy đủ 12 tháng
+    $monthly_revenues = [];
+    for ($month = 1; $month <= 12; $month++) {
+        $found = false;
+        foreach ($monthly_revenues_raw as $revenue) {
+            if ($revenue['revenue_month'] == $month) {
+                $monthly_revenues[] = $revenue;
+                $found = true;
+                break;
+            }
+        }
+        if (!$found) {
+            $monthly_revenues[] = [
+                'revenue_month' => $month,
+                'revenue_period' => $selected_year . '-' . str_pad($month, 2, '0', STR_PAD_LEFT),
+                'monthly_revenue' => 0
+            ];
+        }
+    }
+
+    // Doanh thu theo sản phẩm trong năm được chọn
     $product_revenue_sql = "SELECT p.name, SUM(o.price * o.qty) as revenue, SUM(o.qty) as total_sold
                            FROM orders o 
                            JOIN products p ON o.product_id = p.id 
                            WHERE o.payment_status = 'complete'
+                           AND YEAR(o.`date`) = ?
                            GROUP BY o.product_id 
                            ORDER BY revenue DESC";
-    $product_revenue_stmt = $conn->query($product_revenue_sql);
+    $product_revenue_stmt = $conn->prepare($product_revenue_sql);
+    $product_revenue_stmt->execute([$selected_year]);
     $product_revenues = $product_revenue_stmt->fetchAll(PDO::FETCH_ASSOC);
 
     // Tổng số đơn hàng
     $total_orders_sql = "SELECT COUNT(*) as total_orders FROM orders WHERE payment_status = 'complete'";
-    $total_orders_stmt = $conn->query($total_orders_sql);
+    $total_orders_stmt = $conn->query($total_revenue_sql);
     $total_orders = $total_orders_stmt->fetch(PDO::FETCH_ASSOC)['total_orders'] ?? 0;
 
-    // Đơn hàng tháng này
-    $month_orders_sql = "SELECT COUNT(*) as month_orders 
+    // Đơn hàng trong năm được chọn
+    $year_orders_sql = "SELECT COUNT(*) as year_orders 
                         FROM orders 
                         WHERE payment_status = 'complete' 
-                        AND MONTH(`date`) = MONTH(CURRENT_DATE()) 
-                        AND YEAR(`date`) = YEAR(CURRENT_DATE())";
-    $month_orders_stmt = $conn->query($month_orders_sql);
-    $month_orders = $month_orders_stmt->fetch(PDO::FETCH_ASSOC)['month_orders'] ?? 0;
+                        AND YEAR(`date`) = ?";
+    $year_orders_stmt = $conn->prepare($year_orders_sql);
+    $year_orders_stmt->execute([$selected_year]);
+    $year_orders = $year_orders_stmt->fetch(PDO::FETCH_ASSOC)['year_orders'] ?? 0;
 
 } catch(Exception $e) {
     error_log('Revenue Query Error: ' . $e->getMessage());
     $total_revenue = 0;
-    $monthly_revenue = 0;
+    $yearly_revenue = 0;
     $monthly_revenues = [];
     $product_revenues = [];
     $total_orders = 0;
-    $month_orders = 0;
+    $year_orders = 0;
 }
 
 // Chuẩn bị dữ liệu cho biểu đồ
 $chart_labels = [];
 $chart_data = [];
 
-if (!empty($monthly_revenues)) {
-    foreach ($monthly_revenues as $revenue) {
-        $chart_labels[] = "Tháng " . $revenue['revenue_month'] . "/" . substr($revenue['revenue_year'], 2);
-        $chart_data[] = $revenue['monthly_revenue'];
-    }
+foreach ($monthly_revenues as $revenue) {
+    $month_names = ['', 'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 
+                   'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
+    $chart_labels[] = $month_names[$revenue['revenue_month']];
+    $chart_data[] = $revenue['monthly_revenue'];
 }
 
 ?>
@@ -100,6 +135,36 @@ if (!empty($monthly_revenues)) {
             padding: 20px;
             background: #f5f5f5;
             min-height: calc(100vh - 200px);
+        }
+
+        .year-selector {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .year-selector label {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .year-selector select {
+            padding: 8px 15px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+        }
+
+        .year-selector select:focus {
+            outline: none;
+            border-color: #667eea;
         }
 
         .stats-grid {
@@ -122,7 +187,7 @@ if (!empty($monthly_revenues)) {
             border-left-color: #4facfe;
         }
 
-        .stat-card.monthly {
+        .stat-card.yearly {
             border-left-color: #43e97b;
         }
 
@@ -259,6 +324,21 @@ if (!empty($monthly_revenues)) {
     </div>
 
     <section class="revenue-dashboard">
+        <!-- Chọn năm -->
+        <div class="year-selector">
+            <label for="yearSelect">Chọn năm:</label>
+            <select id="yearSelect" onchange="window.location.href = '?year=' + this.value">
+                <?php foreach ($available_years as $year): ?>
+                    <option value="<?= $year ?>" <?= $year == $selected_year ? 'selected' : '' ?>>
+                        Năm <?= $year ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <span style="color: #666; font-size: 14px;">
+                📊 Đang xem dữ liệu năm <?= $selected_year ?>
+            </span>
+        </div>
+
         <!-- Thống kê tổng quan -->
         <div class="stats-grid">
             <div class="stat-card total">
@@ -267,34 +347,34 @@ if (!empty($monthly_revenues)) {
                 <div class="subtext">Tất cả đơn hàng đã thanh toán</div>
             </div>
 
-            <div class="stat-card monthly">
-                <h3>Doanh Thu Tháng Này</h3>
-                <div class="amount">$<?= number_format($monthly_revenue, 2) ?></div>
-                <div class="subtext">Tháng <?= date('m/Y') ?></div>
+            <div class="stat-card yearly">
+                <h3>Doanh Thu Năm <?= $selected_year ?></h3>
+                <div class="amount">$<?= number_format($yearly_revenue, 2) ?></div>
+                <div class="subtext">Tổng doanh thu trong năm</div>
             </div>
 
             <div class="stat-card orders">
-                <h3>Tổng Đơn Hàng</h3>
-                <div class="amount"><?= number_format($total_orders) ?></div>
-                <div class="subtext"><?= number_format($month_orders) ?> đơn tháng này</div>
+                <h3>Đơn Hàng Năm <?= $selected_year ?></h3>
+                <div class="amount"><?= number_format($year_orders) ?></div>
+                <div class="subtext">Tổng <?= number_format($total_orders) ?> đơn tất cả</div>
             </div>
         </div>
 
         <!-- Biểu đồ doanh thu -->
         <div class="charts-section">
-            <h2>📈 Doanh Thu Theo Tháng</h2>
+            <h2>📈 Doanh Thu Theo Tháng - Năm <?= $selected_year ?></h2>
             <?php if (!empty($monthly_revenues)): ?>
                 <div class="chart-container">
                     <canvas id="revenueChart"></canvas>
                 </div>
             <?php else: ?>
-                <div class="no-data">Chưa có dữ liệu doanh thu theo tháng</div>
+                <div class="no-data">Chưa có dữ liệu doanh thu cho năm <?= $selected_year ?></div>
             <?php endif; ?>
         </div>
 
         <!-- Doanh thu theo sản phẩm -->
         <div class="products-section">
-            <h2>📦 Doanh Thu Theo Sản Phẩm</h2>
+            <h2>📦 Doanh Thu Theo Sản Phẩm - Năm <?= $selected_year ?></h2>
             <?php if (!empty($product_revenues)): ?>
                 <table class="products-table">
                     <thead>
@@ -315,7 +395,7 @@ if (!empty($monthly_revenues)) {
                     </tbody>
                 </table>
             <?php else: ?>
-                <div class="no-data">Chưa có dữ liệu doanh thu theo sản phẩm</div>
+                <div class="no-data">Chưa có dữ liệu doanh thu theo sản phẩm cho năm <?= $selected_year ?></div>
             <?php endif; ?>
         </div>
     </section>
@@ -330,10 +410,36 @@ const revenueChart = new Chart(ctx, {
     data: {
         labels: <?= json_encode($chart_labels) ?>,
         datasets: [{
-            label: 'Doanh Thu ($)',
+            label: 'Doanh Thu ($) - Năm <?= $selected_year ?>',
             data: <?= json_encode($chart_data) ?>,
-            backgroundColor: 'rgba(102, 126, 234, 0.7)',
-            borderColor: 'rgba(102, 126, 234, 1)',
+            backgroundColor: [
+                'rgba(255, 99, 132, 0.7)',
+                'rgba(54, 162, 235, 0.7)',
+                'rgba(255, 206, 86, 0.7)',
+                'rgba(75, 192, 192, 0.7)',
+                'rgba(153, 102, 255, 0.7)',
+                'rgba(255, 159, 64, 0.7)',
+                'rgba(199, 199, 199, 0.7)',
+                'rgba(83, 102, 255, 0.7)',
+                'rgba(40, 159, 64, 0.7)',
+                'rgba(210, 99, 132, 0.7)',
+                'rgba(54, 62, 235, 0.7)',
+                'rgba(255, 106, 86, 0.7)'
+            ],
+            borderColor: [
+                'rgba(255, 99, 132, 1)',
+                'rgba(54, 162, 235, 1)',
+                'rgba(255, 206, 86, 1)',
+                'rgba(75, 192, 192, 1)',
+                'rgba(153, 102, 255, 1)',
+                'rgba(255, 159, 64, 1)',
+                'rgba(199, 199, 199, 1)',
+                'rgba(83, 102, 255, 1)',
+                'rgba(40, 159, 64, 1)',
+                'rgba(210, 99, 132, 1)',
+                'rgba(54, 62, 235, 1)',
+                'rgba(255, 106, 86, 1)'
+            ],
             borderWidth: 1,
             borderRadius: 6,
         }]
