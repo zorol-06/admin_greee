@@ -117,8 +117,8 @@ try {
 
                         <p>Nếu bạn có bất kỳ câu hỏi nào, đừng ngần ngại liên hệ với chúng tôi:</p>
                         <ul>
-                            <li>📞 Hotline: <strong>1900 1234</strong></li>
-                            <li>📧 Email: <strong>support@greencoffee.com</strong></li>
+                            <li>📞 Hotline: <strong>0336965264</strong></li>
+                            <li>📧 Email: <strong>hoaiphm.24itb@vku.udn.vn</strong></li>
                         </ul>
 
                         <p>Cảm ơn bạn đã tin tưởng <strong>Green Coffee</strong>!</p>
@@ -243,8 +243,8 @@ try {
 
                         <p>Nếu bạn có bất kỳ thắc mắc nào về việc xóa đơn hàng, vui lòng liên hệ ngay với chúng tôi:</p>
                         <ul>
-                            <li>📞 Hotline: <strong>1900 1234</strong></li>
-                            <li>📧 Email: <strong>support@greencoffee.com</strong></li>
+                            <li>📞 Hotline: <strong>0336965264</strong></li>
+                            <li>📧 Email: <strong>hoaiphm.24itb@vku.udn.vn</strong></li>
                         </ul>
 
                         <p>Chúng tôi chân thành xin lỗi vì sự bất tiện này.</p>

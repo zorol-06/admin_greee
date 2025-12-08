@@ -2,12 +2,12 @@
     <div class="flex">
         <a href="dashboard.php" class="logo"><img src="../img/logo.jpg" alt="Logo"></a>
         
-        <nav class="navbar">
+       <nav class="navbar">
             <a href="dashboard.php">Bảng điều khiển</a>
             <a href="add_products.php">Thêm sản phẩm</a>
             <a href="view_product.php">Xem sản phẩm</a>
             <a href="RevenueReport.php">xem doanh thu</a>
-        </nav> 
+        </nav>  
         
         <div class="icons">
             <i class="bx bxs-user" id="user-btn"></i> <i class="bx bx-list-plus" id="menu-btn"></i> </div>

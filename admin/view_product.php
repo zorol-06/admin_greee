@@ -60,7 +60,7 @@ if(isset($_POST['delete'])){
                     <?= ($fetch_products['status'] == 'active' ? 'còn hàng' : 'hết hàng'); ?>
                 </div>
 
-                <div class="price">$<?= htmlspecialchars($fetch_products['price']); ?>-</div>
+               <div class="price"><?= number_format(htmlspecialchars($fetch_products['price']), 0, ',', ','); ?> VND</div>
                 <div class="title"><?= htmlspecialchars($fetch_products['name']);?></div>
 
                 <div class="flex-btn">

@@ -8,28 +8,205 @@ if (!$admin_id) {
     exit;
 }
 
-// Xử lý chọn năm
-$selected_year = isset($_GET['year']) ? (int)$_GET['year'] : date('Y');
-$current_year = date('Y');
-
-// Lấy danh sách các năm có dữ liệu
-try {
-    $years_sql = "SELECT DISTINCT YEAR(`date`) as year FROM orders ORDER BY year DESC";
-    $years_stmt = $conn->query($years_sql);
-    $available_years = $years_stmt->fetchAll(PDO::FETCH_COLUMN);
-} catch (Exception $e) {
-    $available_years = [$current_year];
+// === HÀM ĐỊNH DẠNG TIỀN VIỆT NAM ĐẸP ===
+function format_vnd($number) {
+    $number = (float)$number;
+    if ($number == floor($number)) {
+        return number_format($number, 0, ',', '.') . ' ₫';
+    } else {
+        return number_format($number, 0, ',', '.') . ' ₫';
+    }
 }
 
-// Lấy dữ liệu doanh thu theo năm được chọn
+// === TẠO DANH SÁCH NĂM TỪ 2024 ĐẾN NAY ===
+$current_year = date('Y');
+$available_years = range(2024, $current_year); // Từ 2024 đến năm hiện tại
+rsort($available_years); // Sắp xếp giảm dần
+
+// Xử lý chọn năm
+$selected_year = isset($_GET['year']) ? (int)$_GET['year'] : $current_year;
+if (!in_array($selected_year, $available_years)) {
+    $selected_year = $current_year; // Nếu năm không hợp lệ, mặc định năm hiện tại
+}
+
+// Xử lý xuất Excel
+if (isset($_POST['export_excel'])) {
+    exportToExcel($conn, $selected_year);
+}
+
+function exportToExcel($conn, $year) {
+    try {
+        // Doanh thu năm được chọn (dùng final_price - số tiền thực tế khách trả)
+        $yearly_revenue_sql = "SELECT SUM(final_price) AS yearly_revenue 
+                              FROM orders 
+                              WHERE payment_status = 'complete' 
+                              AND YEAR(`date`) = ?";
+        $yearly_revenue_stmt = $conn->prepare($yearly_revenue_sql);
+        $yearly_revenue_stmt->execute([$year]);
+        $yearly_revenue = $yearly_revenue_stmt->fetch(PDO::FETCH_ASSOC)['yearly_revenue'] ?? 0;
+
+        // Doanh thu theo tháng (dùng final_price)
+        $monthly_revenue_sql = "SELECT 
+                                MONTH(`date`) as revenue_month,
+                                DATE_FORMAT(`date`, '%Y-%m') as revenue_period,
+                                SUM(final_price) as monthly_revenue
+                            FROM orders 
+                            WHERE payment_status = 'complete' 
+                            AND YEAR(`date`) = ?
+                            GROUP BY revenue_month, revenue_period
+                            ORDER BY revenue_month";
+        $monthly_revenue_stmt = $conn->prepare($monthly_revenue_sql);
+        $monthly_revenue_stmt->execute([$year]);
+        $monthly_revenues = $monthly_revenue_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Doanh thu theo sản phẩm (tính từ final_price)
+        $product_revenue_sql = "SELECT 
+                               p.name, 
+                               SUM(o.final_price) as revenue, 
+                               SUM(o.qty) as total_sold
+                               FROM orders o 
+                               JOIN products p ON o.product_id = p.id 
+                               WHERE o.payment_status = 'complete'
+                               AND YEAR(o.`date`) = ?
+                               GROUP BY o.product_id 
+                               ORDER BY revenue DESC";
+        $product_revenue_stmt = $conn->prepare($product_revenue_sql);
+        $product_revenue_stmt->execute([$year]);
+        $product_revenues = $product_revenue_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Tổng số đơn hàng trong năm
+        $year_orders_sql = "SELECT COUNT(*) as year_orders 
+                            FROM orders 
+                            WHERE payment_status = 'complete' 
+                            AND YEAR(`date`) = ?";
+        $year_orders_stmt = $conn->prepare($year_orders_sql);
+        $year_orders_stmt->execute([$year]);
+        $year_orders = $year_orders_stmt->fetch(PDO::FETCH_ASSOC)['year_orders'] ?? 0;
+
+        // Tạo file Excel với UTF-8 BOM
+        header('Content-Type: application/vnd.ms-excel; charset=utf-8');
+        header('Content-Disposition: attachment;filename="bao_cao_doanh_thu_' . $year . '.xls"');
+        header('Cache-Control: max-age=0');
+        
+        // Xuất BOM để hỗ trợ UTF-8
+        echo "\xEF\xBB\xBF";
+        
+        // Bắt đầu bảng HTML
+        echo '<!DOCTYPE html>
+        <html>
+        <head>
+            <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+            <style>
+                table { border-collapse: collapse; width: 100%; }
+                th, td { border: 1px solid #dddddd; padding: 8px; text-align: left; }
+                th { background-color: #f2f2f2; font-weight: bold; }
+                .title { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
+                .section { margin-top: 20px; font-weight: bold; }
+                .money { text-align: right; }
+            </style>
+        </head>
+        <body>';
+        
+        // Tiêu đề file
+        echo '<div class="title">BÁO CÁO DOANH THU NĂM ' . $year . '</div>';
+        
+        // Tổng quan doanh thu
+        echo '<table>
+                <tr><th colspan="2">TỔNG QUAN DOANH THU</th></tr>
+                <tr><td>Doanh thu năm:</td><td class="money">' . format_vnd($yearly_revenue) . '</td></tr>
+                <tr><td>Tổng số đơn hàng:</td><td>' . number_format($year_orders) . '</td></tr>
+              </table>';
+        
+        echo '<br>';
+        
+        // Doanh thu theo tháng
+        echo '<div class="section">DOANH THU THEO THÁNG</div>';
+        echo '<table>
+                <tr>
+                    <th>Tháng</th>
+                    <th>Kỳ</th>
+                    <th>Doanh thu</th>
+                </tr>';
+        
+        $month_names = ['', 'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 
+                       'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
+        
+        // Tạo mảng đầy đủ 12 tháng
+        $full_monthly_data = [];
+        for ($month = 1; $month <= 12; $month++) {
+            $found = false;
+            foreach ($monthly_revenues as $revenue) {
+                if ($revenue['revenue_month'] == $month) {
+                    $full_monthly_data[] = $revenue;
+                    $found = true;
+                    break;
+                }
+            }
+            if (!$found) {
+                $full_monthly_data[] = [
+                    'revenue_month' => $month,
+                    'revenue_period' => $year . '-' . str_pad($month, 2, '0', STR_PAD_LEFT),
+                    'monthly_revenue' => 0
+                ];
+            }
+        }
+        
+        foreach ($full_monthly_data as $revenue) {
+            echo '<tr>
+                    <td>' . $month_names[$revenue['revenue_month']] . '</td>
+                    <td>' . $revenue['revenue_period'] . '</td>
+                    <td class="money">' . format_vnd($revenue['monthly_revenue']) . '</td>
+                  </tr>';
+        }
+        
+        echo '</table>';
+        echo '<br>';
+        
+        // Doanh thu theo sản phẩm
+        echo '<div class="section">DOANH THU THEO SẢN PHẨM</div>';
+        echo '<table>
+                <tr>
+                    <th>Tên sản phẩm</th>
+                    <th>Số lượng bán</th>
+                    <th>Doanh thu</th>
+                </tr>';
+        
+        if (!empty($product_revenues)) {
+            foreach ($product_revenues as $product) {
+                echo '<tr>
+                        <td>' . htmlspecialchars($product['name']) . '</td>
+                        <td>' . number_format($product['total_sold']) . ' sản phẩm</td>
+                        <td class="money">' . format_vnd($product['revenue']) . '</td>
+                      </tr>';
+            }
+        } else {
+            echo '<tr><td colspan="3" style="text-align:center;">Chưa có dữ liệu</td></tr>';
+        }
+        
+        echo '</table>';
+        
+        echo '</body></html>';
+        exit;
+        
+    } catch(Exception $e) {
+        error_log('Excel Export Error: ' . $e->getMessage());
+        $_SESSION['error'] = 'Có lỗi xảy ra khi xuất file Excel: ' . $e->getMessage();
+        header('location: revenue_report.php?year=' . $year);
+        exit;
+    }
+}
+
+// === LẤY DỮ LIỆU DOANH THU THEO NĂM ĐƯỢC CHỌN ===
 try {
-    // Tổng doanh thu
-    $total_revenue_sql = "SELECT SUM(price * qty) AS total_revenue FROM orders WHERE payment_status = 'complete'";
+    // Tổng doanh thu tất cả thời gian (dùng final_price)
+    $total_revenue_sql = "SELECT SUM(final_price) AS total_revenue 
+                         FROM orders 
+                         WHERE payment_status = 'complete'";
     $total_revenue_stmt = $conn->query($total_revenue_sql);
     $total_revenue = $total_revenue_stmt->fetch(PDO::FETCH_ASSOC)['total_revenue'] ?? 0;
 
-    // Doanh thu năm được chọn
-    $yearly_revenue_sql = "SELECT SUM(price * qty) AS yearly_revenue 
+    // Doanh thu năm được chọn (dùng final_price)
+    $yearly_revenue_sql = "SELECT SUM(final_price) AS yearly_revenue 
                           FROM orders 
                           WHERE payment_status = 'complete' 
                           AND YEAR(`date`) = ?";
@@ -37,11 +214,11 @@ try {
     $yearly_revenue_stmt->execute([$selected_year]);
     $yearly_revenue = $yearly_revenue_stmt->fetch(PDO::FETCH_ASSOC)['yearly_revenue'] ?? 0;
 
-    // Doanh thu 12 tháng của năm được chọn
+    // Doanh thu 12 tháng của năm được chọn (dùng final_price)
     $monthly_revenue_sql = "SELECT 
                             MONTH(`date`) as revenue_month,
                             DATE_FORMAT(`date`, '%Y-%m') as revenue_period,
-                            SUM(price * qty) as monthly_revenue
+                            SUM(final_price) as monthly_revenue
                         FROM orders 
                         WHERE payment_status = 'complete' 
                         AND YEAR(`date`) = ?
@@ -52,7 +229,7 @@ try {
     $monthly_revenue_stmt->execute([$selected_year]);
     $monthly_revenues_raw = $monthly_revenue_stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Tạo mảng đầy đủ 12 tháng
+    // Tạo mảng đầy đủ 12 tháng (kể cả tháng không có doanh thu)
     $monthly_revenues = [];
     for ($month = 1; $month <= 12; $month++) {
         $found = false;
@@ -72,8 +249,11 @@ try {
         }
     }
 
-    // Doanh thu theo sản phẩm trong năm được chọn
-    $product_revenue_sql = "SELECT p.name, SUM(o.price * o.qty) as revenue, SUM(o.qty) as total_sold
+    // Doanh thu theo sản phẩm trong năm được chọn (tính từ final_price)
+    $product_revenue_sql = "SELECT 
+                           p.name, 
+                           SUM(o.final_price) as revenue, 
+                           SUM(o.qty) as total_sold
                            FROM orders o 
                            JOIN products p ON o.product_id = p.id 
                            WHERE o.payment_status = 'complete'
@@ -84,9 +264,11 @@ try {
     $product_revenue_stmt->execute([$selected_year]);
     $product_revenues = $product_revenue_stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Tổng số đơn hàng
-    $total_orders_sql = "SELECT COUNT(*) as total_orders FROM orders WHERE payment_status = 'complete'";
-    $total_orders_stmt = $conn->query($total_revenue_sql);
+    // Tổng số đơn hàng tất cả thời gian
+    $total_orders_sql = "SELECT COUNT(*) as total_orders 
+                        FROM orders 
+                        WHERE payment_status = 'complete'";
+    $total_orders_stmt = $conn->query($total_orders_sql);
     $total_orders = $total_orders_stmt->fetch(PDO::FETCH_ASSOC)['total_orders'] ?? 0;
 
     // Đơn hàng trong năm được chọn
@@ -102,19 +284,20 @@ try {
     error_log('Revenue Query Error: ' . $e->getMessage());
     $total_revenue = 0;
     $yearly_revenue = 0;
-    $monthly_revenues = [];
+    $monthly_revenues = array_fill(0, 12, ['monthly_revenue' => 0]);
     $product_revenues = [];
     $total_orders = 0;
     $year_orders = 0;
 }
 
-// Chuẩn bị dữ liệu cho biểu đồ
+// Chuẩn bị dữ liệu cho biểu đồ (đảm bảo đủ 12 tháng)
 $chart_labels = [];
 $chart_data = [];
 
+$month_names = ['', 'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 
+               'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
+
 foreach ($monthly_revenues as $revenue) {
-    $month_names = ['', 'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 
-                   'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
     $chart_labels[] = $month_names[$revenue['revenue_month']];
     $chart_data[] = $revenue['monthly_revenue'];
 }
@@ -122,14 +305,14 @@ foreach ($monthly_revenues as $revenue) {
 ?>
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <link rel="stylesheet" type="text/css" href="admin_style.css?v=<?php echo time(); ?>">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <title>Green Coffee Admin Panel - Báo Cáo Doanh Thu</title>
+    <title>Green Coffee Admin - Báo Cáo Doanh Thu</title>
     <style>
         .revenue-dashboard {
             padding: 20px;
@@ -146,6 +329,7 @@ foreach ($monthly_revenues as $revenue) {
             display: flex;
             align-items: center;
             gap: 15px;
+            flex-wrap: wrap;
         }
 
         .year-selector label {
@@ -165,6 +349,25 @@ foreach ($monthly_revenues as $revenue) {
         .year-selector select:focus {
             outline: none;
             border-color: #667eea;
+        }
+
+        .export-btn {
+            background: #28a745;
+            color: white;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            transition: background 0.3s;
+        }
+
+        .export-btn:hover {
+            background: #218838;
         }
 
         .stats-grid {
@@ -307,6 +510,16 @@ foreach ($monthly_revenues as $revenue) {
             .stat-card .amount {
                 font-size: 24px;
             }
+            
+            .year-selector {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .export-btn {
+                width: 100%;
+                justify-content: center;
+            }
         }
     </style>
 </head>
@@ -324,7 +537,7 @@ foreach ($monthly_revenues as $revenue) {
     </div>
 
     <section class="revenue-dashboard">
-        <!-- Chọn năm -->
+        <!-- Chọn năm và xuất Excel -->
         <div class="year-selector">
             <label for="yearSelect">Chọn năm:</label>
             <select id="yearSelect" onchange="window.location.href = '?year=' + this.value">
@@ -337,20 +550,26 @@ foreach ($monthly_revenues as $revenue) {
             <span style="color: #666; font-size: 14px;">
                 📊 Đang xem dữ liệu năm <?= $selected_year ?>
             </span>
+            
+            <form method="post" style="margin-left: auto;">
+                <button type="submit" name="export_excel" class="export-btn">
+                    <i class='bx bx-download'></i> Xuất Excel
+                </button>
+            </form>
         </div>
 
-        <!-- Thống kê tổng quan -->
+        <!-- Thống kê quan trọng -->
         <div class="stats-grid">
             <div class="stat-card total">
                 <h3>Tổng Doanh Thu</h3>
-                <div class="amount">$<?= number_format($total_revenue, 2) ?></div>
+                <div class="amount"><?= format_vnd($total_revenue) ?></div>
                 <div class="subtext">Tất cả đơn hàng đã thanh toán</div>
             </div>
 
             <div class="stat-card yearly">
                 <h3>Doanh Thu Năm <?= $selected_year ?></h3>
-                <div class="amount">$<?= number_format($yearly_revenue, 2) ?></div>
-                <div class="subtext">Tổng doanh thu trong năm</div>
+                <div class="amount"><?= format_vnd($yearly_revenue) ?></div>
+                <div class="subtext">Số tiền thực tế khách hàng trả</div>
             </div>
 
             <div class="stat-card orders">
@@ -363,13 +582,9 @@ foreach ($monthly_revenues as $revenue) {
         <!-- Biểu đồ doanh thu -->
         <div class="charts-section">
             <h2>📈 Doanh Thu Theo Tháng - Năm <?= $selected_year ?></h2>
-            <?php if (!empty($monthly_revenues)): ?>
-                <div class="chart-container">
-                    <canvas id="revenueChart"></canvas>
-                </div>
-            <?php else: ?>
-                <div class="no-data">Chưa có dữ liệu doanh thu cho năm <?= $selected_year ?></div>
-            <?php endif; ?>
+            <div class="chart-container">
+                <canvas id="revenueChart"></canvas>
+            </div>
         </div>
 
         <!-- Doanh thu theo sản phẩm -->
@@ -389,7 +604,7 @@ foreach ($monthly_revenues as $revenue) {
                             <tr>
                                 <td><?= htmlspecialchars($product['name']) ?></td>
                                 <td><?= number_format($product['total_sold']) ?> sản phẩm</td>
-                                <td><span class="revenue-badge">$<?= number_format($product['revenue'], 2) ?></span></td>
+                                <td><span class="revenue-badge"><?= format_vnd($product['revenue']) ?></span></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
@@ -402,7 +617,6 @@ foreach ($monthly_revenues as $revenue) {
 </div>
 
 <script>
-<?php if (!empty($monthly_revenues)): ?>
 // Biểu đồ doanh thu
 const ctx = document.getElementById('revenueChart').getContext('2d');
 const revenueChart = new Chart(ctx, {
@@ -410,7 +624,7 @@ const revenueChart = new Chart(ctx, {
     data: {
         labels: <?= json_encode($chart_labels) ?>,
         datasets: [{
-            label: 'Doanh Thu ($) - Năm <?= $selected_year ?>',
+            label: 'Doanh Thu - Năm <?= $selected_year ?>',
             data: <?= json_encode($chart_data) ?>,
             backgroundColor: [
                 'rgba(255, 99, 132, 0.7)',
@@ -455,7 +669,11 @@ const revenueChart = new Chart(ctx, {
             tooltip: {
                 callbacks: {
                     label: function(context) {
-                        return `Doanh thu: $${context.parsed.y.toFixed(2)}`;
+                        let value = context.parsed.y;
+                        let formattedValue = value == Math.floor(value) ? 
+                            value.toLocaleString() + ' ₫' : 
+                            value.toLocaleString() + ' ₫';
+                        return `Doanh thu: ${formattedValue}`;
                     }
                 }
             }
@@ -465,7 +683,7 @@ const revenueChart = new Chart(ctx, {
                 beginAtZero: true,
                 ticks: {
                     callback: function(value) {
-                        return '$' + value.toLocaleString();
+                        return value.toLocaleString() + ' ₫';
                     }
                 },
                 grid: {
@@ -480,14 +698,13 @@ const revenueChart = new Chart(ctx, {
         }
     }
 });
-<?php endif; ?>
 
 // Hiệu ứng cho các card
 document.querySelectorAll('.stat-card').forEach((card, index) => {
     card.style.opacity = '0';
     card.style.transform = 'translateY(20px)';
     card.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
-    
+
     setTimeout(() => {
         card.style.opacity = '1';
         card.style.transform = 'translateY(0)';

@@ -17,7 +17,7 @@ if (isset($info_msg)) {
 }
 if (isset($error_msg)) {
     foreach ($error_msg as $error_msg) {
-        echo '<script>swal("' . $error_msg . '","","success");</script>';
+        echo '<script>swal("' . $error_msg . '","","error");</script>';
     }
 }
 ?>

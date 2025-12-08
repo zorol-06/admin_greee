@@ -100,13 +100,13 @@ include '../components/connection.php';
             </div>
             <div class="box">    
             <?php
-            $select_orders = $conn->prepare("SELECT * FROM orders");
-            $select_orders->execute();
-            $num_of_orders = $select_orders->rowCount();
+            $select_pending_orders = $conn->prepare("SELECT * FROM orders WHERE status = ?");
+            $select_pending_orders->execute(['pending']);
+            $num_of_pending_orders = $select_pending_orders->rowCount();
             ?>
-            <h3><?=$num_of_orders;?></h3>
-            <p>tổng số đơn đặt hàng</p>
-            <a href="order.php"class="btn">xem đơn hàng</a>
+            <h3><?=$num_of_pending_orders;?></h3>
+            <p>Đơn hàng cần xử lý</p>
+            <a href="order_processing.php"class="btn">xem đơn hàng</a>
             </div>
          <div class="box">    
     <?php
@@ -140,7 +140,18 @@ include '../components/connection.php';
              <p>Tổng số mã giảm giá</p>
              <a href="coupons.php" class="btn">Xem mã giảm giá</a>
             </div>
+            <div class="box">    
+              <?php
+           $select_pending_orders = $conn->prepare("SELECT * FROM orders "); 
+           $select_pending_orders->execute(); 
+           $num_of_pending_orders = $select_pending_orders->rowCount()
 
+              ?>
+    
+             <h3><?= $num_of_pending_orders; ?></h3>
+             <p>Tổng số đơn hàng</p>
+             <a href="order.php" class="btn">Xem đơn hàng</a>
+            </div>
            </div>
         </section>
     </div>

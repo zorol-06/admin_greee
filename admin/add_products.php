@@ -9,17 +9,15 @@ if (!$admin_id) {
     exit;
 }
 
-// 🧩 Hàm dùng chung để thêm sản phẩm (cho cả publish & draft)
+//  Hàm dùng chung để thêm sản phẩm (cho cả publish & draft)
 function add_product($conn, $status) {
     global $success_msg, $warning_msg;
-
-    // Giả sử hàm unique_id() đã được định nghĩa ở nơi khác
-    $id = unique_id(); 
+    
     $name = filter_var($_POST['name'], FILTER_SANITIZE_STRING);
     $price = filter_var($_POST['price'], FILTER_SANITIZE_STRING);
     $content = filter_var($_POST['content'], FILTER_SANITIZE_STRING);
 
-    // 📸 Xử lý hình ảnh
+    //  Xử lý hình ảnh
     $image = $_FILES['image']['name'];
     $image = filter_var($image, FILTER_SANITIZE_STRING);
     $image_size = $_FILES['image']['size'];
@@ -43,15 +41,15 @@ function add_product($conn, $status) {
         $image = '';
     }
 
-    // ✅ Nếu không có lỗi, thêm sản phẩm vào database
+    //  Nếu không có lỗi, thêm sản phẩm vào database
     // Cần kiểm tra lại nếu có lỗi hình ảnh thì vẫn bị chạy đoạn insert này.
     // Tốt nhất là kiểm tra $warning_msg có rỗng không TRƯỚC khi chạy SQL
     if (empty($warning_msg)) {
         $insert = $conn->prepare("
-            INSERT INTO products (id, name, price, image, product_detail, status)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO products ( name, price, image, product_detail, status)
+            VALUES ( ?, ?, ?, ?, ?)
         ");
-        $insert->execute([$id, $name, $price, $image, $content, $status]);
+        $insert->execute([ $name, $price, $image, $content, $status]);
 
         if ($status === 'active') {
             $success_msg[] = 'Thêm sản phẩm và xuất bản thành công!'; // ĐÃ CHUYỂN VIỆT HÓA
@@ -108,7 +106,7 @@ if (isset($_POST['draft'])) {
                 </div>
 
                 <div class="flex-btn">
-                    <button type="submit" name="publish" class="btn">Xuất bản Sản phẩm</button> <button type="submit" name="draft" class="btn">Lưu thành Bản nháp</button> </div>
+                    <button type="submit" name="publish" class="btn">Thêm Sản phẩm</button> <button type="submit" name="draft" class="btn">Lưu thành Bản nháp</button> </div>
             </form>
         </section>
     </div>

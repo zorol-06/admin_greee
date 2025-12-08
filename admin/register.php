@@ -3,7 +3,7 @@ include '../components/connection.php';
 session_start();
 
 if (isset($_POST['register'])) {
-    $id = uniqid();
+   
 
     $name  = htmlspecialchars(trim($_POST['name']));
     $email = filter_var(trim($_POST['email']), FILTER_SANITIZE_EMAIL);
@@ -31,8 +31,8 @@ if (isset($_POST['register'])) {
     } else {
         $hashed_pass = password_hash($pass, PASSWORD_DEFAULT);
 
-        $insert_admin = $conn->prepare("INSERT INTO admin (id, name, email, password, profile) VALUES (?, ?, ?, ?, ?)");
-        $insert_admin->execute([$id, $name, $email, $hashed_pass, $image]);
+        $insert_admin = $conn->prepare("INSERT INTO admin ( name, email, password, profile) VALUES ( ?, ?, ?, ?)");
+        $insert_admin->execute([ $name, $email, $hashed_pass, $image]);
 
         if ($insert_admin->rowCount() > 0) {
             if (!empty($_FILES['image']['name'])) {

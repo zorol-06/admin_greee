@@ -13,7 +13,7 @@ if(isset($_POST['delete'])){
     $p_id = filter_var($_POST['product_id'], FILTER_SANITIZE_STRING);
     $delete_product = $conn->prepare("DELETE FROM products WHERE id = ?");
     $delete_product->execute([$p_id]);
-    $success_msg[] = 'Sản phẩm đã được xóa thành công'; // VIETNAMESE
+    $success_msg[] = 'Sản phẩm đã được xóa thành công'; 
 }
 ?>
 

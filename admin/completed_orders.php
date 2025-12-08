@@ -73,12 +73,12 @@ $revenue = $total_revenue->fetch(PDO::FETCH_ASSOC)['revenue'] ?? 0;
     </div>
 
     <!-- Thống kê -->
-    <div class="stats-container">
+   <!-- <div class="stats-container">
         <h3>📊 Thống kê đơn hàng hoàn tất</h3>
         <p>Tổng số đơn hàng hoàn tất: <span class="stats-number"><?= $total_completed ?></span></p>
-        <p>Tổng doanh thu: <span class="revenue-number">$<?= number_format($revenue, 2) ?></span></p>
+        <p>Tổng doanh thu: <span class="revenue-number">$<?= number_format($revenue,) ?></span></p>
         <p><small>Đây là danh sách tất cả đơn hàng đã được giao và thanh toán hoàn tất</small></p>
-    </div>
+    </div> --->
 
     <section class="order-container">
         <h1 class="heading">Danh sách đơn hàng hoàn tất</h1>
@@ -112,13 +112,13 @@ $revenue = $total_revenue->fetch(PDO::FETCH_ASSOC)['revenue'] ?? 0;
                             <p><strong>📅 Ngày đặt:</strong> <span><?= $date ?></span></p>
                             <p><strong>📞 Điện thoại:</strong> <span><?= $number ?></span></p>
                             <p><strong>📧 Email:</strong> <span><?= $email ?></span></p>
-                            <p><strong>💰 Giá gốc:</strong> <span>$<?= number_format($price, 2) ?></span></p>
+                            <p><strong>💰 Giá gốc:</strong> <span><?= number_format($price, ) ?> VND</span></p>
                             
                             <?php if (!empty($coupon_code) && $discount_amount > 0): ?>
-                                <p><strong>🎫 Mã giảm giá:</strong> <span><?= $coupon_code ?> (-$<?= number_format($discount_amount, 2) ?>)</span></p>
+                                <p><strong>🎫 Mã giảm giá:</strong> <span><?= $coupon_code ?> (-<?= number_format($discount_amount, ) ?>) VND</span></p>
                             <?php endif; ?>
                             
-                            <p><strong>💵 Thành tiền:</strong> <span style="color: #28a745; font-weight: bold;">$<?= number_format($final_price, 2) ?></span></p>
+                            <p><strong>💵 Thành tiền:</strong> <span style="color: #28a745; font-weight: bold;"><?= number_format($final_price, ) ?> VND</span></p>
                             <p><strong>💳 Phương thức:</strong> <span><?= $method ?></span></p>
                             <p><strong>🏠 Địa chỉ:</strong> <span><?= $address ?></span></p>
                             <p><strong>📊 Trạng thái:</strong> 

@@ -2,14 +2,14 @@
 include '../components/connection.php';
 session_start();
 
-// 🔒 Kiểm tra admin đăng nhập
+//  Kiểm tra admin đăng nhập
 $admin_id = $_SESSION['admin_id'] ?? null;
 if (!$admin_id) {
     header('location:login.php');
     exit;
 }
 
-// 🗑️ Xử lý xóa tin nhắn
+//  Xử lý xóa tin nhắn
 if (isset($_POST['delete'])) {
 
     $delete_id = filter_var($_POST['delete_id'], FILTER_SANITIZE_STRING);

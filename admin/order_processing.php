@@ -278,136 +278,126 @@ try {
         }
     }
 
-    // Xử lý CẬP NHẬT trạng thái đơn hàng (giữ nguyên)
-    if (isset($_POST['update_order']) && isset($_POST['order_id']) && isset($_POST['update_payment'])) {
+    // Xử lý CẬP NHẬT trạng thái đơn hàng thành "đã giao hàng"
+    if (isset($_POST['deliver_order']) && isset($_POST['order_id'])) {
         $order_id = (int) $_POST['order_id'];
-        $update_payment = trim($_POST['update_payment']);
 
-        if ($update_payment === 'complete') {
-            // Code xử lý cập nhật trạng thái hoàn tất (giữ nguyên)
-            $update_order = $conn->prepare("UPDATE orders SET payment_status = 'complete', status = 'delivered' WHERE id = ?");
-            $update_order->execute([$order_id]);
+        // Cập nhật trạng thái thành delivered và payment_status thành complete
+        $update_order = $conn->prepare("UPDATE orders SET status = 'delivered', payment_status = 'complete' WHERE id = ?");
+        $update_order->execute([$order_id]);
+        
+        // 🔹 GỬI EMAIL THÔNG BÁO GIAO HÀNG THÀNH CÔNG
+        $select_order_info = $conn->prepare("SELECT * FROM orders WHERE id = ?");
+        $select_order_info->execute([$order_id]);
+        $order_info = $select_order_info->fetch(PDO::FETCH_ASSOC);
+        
+        if ($order_info) {
+            $customer_email = $order_info['email'];
+            $customer_name = $order_info['name'];
+            $order_total = $order_info['final_price'] ?? $order_info['price'];
             
-            // Gửi email thông báo (giữ nguyên code hiện tại của bạn)
-            $select_order_info = $conn->prepare("SELECT * FROM orders WHERE id = ?");
-            $select_order_info->execute([$order_id]);
-            $order_info = $select_order_info->fetch(PDO::FETCH_ASSOC);
+            $emailSubject = 'Đơn hàng của bạn đã được giao thành công!';
+            $emailContent = "
+                <html>
+                <head>
+                    <style>
+                        body { 
+                            font-family: Arial, sans-serif; 
+                            line-height: 1.6;
+                            color: #333;
+                            max-width: 600px;
+                            margin: 0 auto;
+                            padding: 20px;
+                        }
+                        .header { 
+                            background: linear-gradient(135deg, #2e7d32, #4caf50);
+                            color: white; 
+                            padding: 30px 20px; 
+                            text-align: center; 
+                            border-radius: 10px 10px 0 0;
+                        }
+                        .content { 
+                            padding: 30px 20px; 
+                            background: #f9f9f9; 
+                            border-left: 1px solid #ddd;
+                            border-right: 1px solid #ddd;
+                        }
+                        .order-info {
+                            background: white;
+                            padding: 20px;
+                            border-radius: 8px;
+                            border-left: 4px solid #4caf50;
+                            margin: 20px 0;
+                        }
+                        .success-badge {
+                            background: #4caf50;
+                            color: white;
+                            padding: 10px 20px;
+                            border-radius: 20px;
+                            display: inline-block;
+                            margin: 10px 0;
+                        }
+                        .footer { 
+                            text-align: center; 
+                            padding: 20px; 
+                            font-size: 12px; 
+                            color: #666;
+                            background: #f1f1f1;
+                            border-radius: 0 0 10px 10px;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class='header'>
+                        <h1>☕ Green Coffee</h1>
+                        <p>Thế giới cà phê nguyên chất</p>
+                    </div>
+                    <div class='content'>
+                        <div class='success-badge'>
+                            <strong>🎉 ĐƠN HÀNG ĐÃ GIAO THÀNH CÔNG!</strong>
+                        </div>
+                        
+                        <p>Xin chào <strong>{$customer_name}</strong>,</p>
+                        
+                        <p>Chúng tôi xin thông báo đơn hàng <strong>#{$order_id}</strong> của bạn đã được giao thành công!</p>
+                        
+                        <div class='order-info'>
+                            <h3>📦 Thông tin đơn hàng:</h3>
+                            <p><strong>Mã đơn hàng:</strong> #{$order_id}</p>
+                            <p><strong>Tổng giá trị:</strong> " . number_format($order_total, 0, ',', '.') . " VNĐ</p>
+                            <p><strong>Trạng thái:</strong> <span style='color: #4caf50;'>✅ Đã giao hàng & Thanh toán hoàn tất</span></p>
+                            <p><strong>Ngày cập nhật:</strong> " . date('d/m/Y H:i:s') . "</p>
+                        </div>
+
+                        <p>Cảm ơn bạn đã tin tưởng và mua sắm tại <strong>Green Coffee</strong>!</p>
+                        
+                        <p>Nếu bạn có bất kỳ câu hỏi nào về đơn hàng, đừng ngần ngại liên hệ với chúng tôi:</p>
+                        <ul>
+                            <li>📞 Hotline: <strong>0336965264</strong></li>
+                            <li>📧 Email: <strong>hoaiphm.24itb@vku.udn.vn</strong></li>
+                        </ul>
+
+                        <p>Chúng tôi hy vọng bạn hài lòng với sản phẩm và dịch vụ của chúng tôi!</p>
+                        
+                        <p>Trân trọng,<br>
+                        <strong>Đội ngũ Green Coffee</strong></p>
+                    </div>
+                    <div class='footer'>
+                        <p>© " . date('Y') . " <strong>Green Coffee</strong>. All rights reserved.</p>
+                        <p>Đây là email tự động, vui lòng không trả lời.</p>
+                    </div>
+                </body>
+                </html>
+            ";
+
+            // Gửi email thông báo
+            $emailSent = sendMail($customer_email, $emailSubject, $emailContent);
             
-            if ($order_info) {
-                $customer_email = $order_info['email'];
-                $customer_name = $order_info['name'];
-                $order_total = $order_info['price'];
-                
-                $emailSubject = 'Đơn hàng của bạn đã được giao thành công!';
-                $emailContent = "
-                    <html>
-                    <head>
-                        <style>
-                            body { 
-                                font-family: Arial, sans-serif; 
-                                line-height: 1.6;
-                                color: #333;
-                                max-width: 600px;
-                                margin: 0 auto;
-                                padding: 20px;
-                            }
-                            .header { 
-                                background: linear-gradient(135deg, #2e7d32, #4caf50);
-                                color: white; 
-                                padding: 30px 20px; 
-                                text-align: center; 
-                                border-radius: 10px 10px 0 0;
-                            }
-                            .content { 
-                                padding: 30px 20px; 
-                                background: #f9f9f9; 
-                                border-left: 1px solid #ddd;
-                                border-right: 1px solid #ddd;
-                            }
-                            .order-info {
-                                background: white;
-                                padding: 20px;
-                                border-radius: 8px;
-                                border-left: 4px solid #4caf50;
-                                margin: 20px 0;
-                            }
-                            .success-badge {
-                                background: #4caf50;
-                                color: white;
-                                padding: 10px 20px;
-                                border-radius: 20px;
-                                display: inline-block;
-                                margin: 10px 0;
-                            }
-                            .footer { 
-                                text-align: center; 
-                                padding: 20px; 
-                                font-size: 12px; 
-                                color: #666;
-                                background: #f1f1f1;
-                                border-radius: 0 0 10px 10px;
-                            }
-                        </style>
-                    </head>
-                    <body>
-                        <div class='header'>
-                            <h1>☕ Green Coffee</h1>
-                            <p>Thế giới cà phê nguyên chất</p>
-                        </div>
-                        <div class='content'>
-                            <div class='success-badge'>
-                                <strong>🎉 ĐƠN HÀNG ĐÃ GIAO THÀNH CÔNG!</strong>
-                            </div>
-                            
-                            <p>Xin chào <strong>{$customer_name}</strong>,</p>
-                            
-                            <p>Chúng tôi xin thông báo đơn hàng <strong>#{$order_id}</strong> của bạn đã được giao thành công!</p>
-                            
-                            <div class='order-info'>
-                                <h3>📦 Thông tin đơn hàng:</h3>
-                                <p><strong>Mã đơn hàng:</strong> #{$order_id}</p>
-                                <p><strong>Tổng giá trị:</strong> \${$order_total}</p>
-                                <p><strong>Trạng thái:</strong> <span style='color: #4caf50;'>✅ Đã giao hàng & Thanh toán hoàn tất</span></p>
-                                <p><strong>Ngày cập nhật:</strong> " . date('d/m/Y H:i:s') . "</p>
-                            </div>
-
-                            <p>Cảm ơn bạn đã tin tưởng và mua sắm tại <strong>Green Coffee</strong>!</p>
-                            
-                            <p>Nếu bạn có bất kỳ câu hỏi nào về đơn hàng, đừng ngần ngại liên hệ với chúng tôi:</p>
-                            <ul>
-                                <li>📞 Hotline: <strong>0336965264</strong></li>
-                                <li>📧 Email: <strong>hoaiphm.24itb@vku.udn.vn</strong></li>
-                            </ul>
-
-                            <p>Chúng tôi hy vọng bạn hài lòng với sản phẩm và dịch vụ của chúng tôi!</p>
-                            
-                            <p>Trân trọng,<br>
-                            <strong>Đội ngũ Green Coffee</strong></p>
-                        </div>
-                        <div class='footer'>
-                            <p>© " . date('Y') . " <strong>Green Coffee</strong>. All rights reserved.</p>
-                            <p>Đây là email tự động, vui lòng không trả lời.</p>
-                        </div>
-                    </body>
-                    </html>
-                ";
-
-                // Gửi email thông báo
-                $emailSent = sendMail($customer_email, $emailSubject, $emailContent);
-                
-                if ($emailSent) {
-                    $success_msg[] = 'Đơn hàng đã được đánh dấu là hoàn tất và email thông báo đã gửi cho khách hàng';
-                } else {
-                    $success_msg[] = 'Đơn hàng đã được đánh dấu là hoàn tất (có lỗi khi gửi email thông báo)';
-                }
+            if ($emailSent) {
+                $success_msg[] = 'Đơn hàng #' . $order_id . ' đã được đánh dấu là giao hàng thành công và email thông báo đã gửi cho khách hàng';
+            } else {
+                $success_msg[] = 'Đơn hàng #' . $order_id . ' đã được đánh dấu là giao hàng thành công (có lỗi khi gửi email thông báo)';
             }
-            
-        } else if ($update_payment === 'pending') {
-            $update_order = $conn->prepare("UPDATE orders SET payment_status = 'pending', status = 'pending' WHERE id = ?");
-            $update_order->execute([$order_id]);
-            $success_msg[] = 'Đơn hàng đã được đặt lại trạng thái chờ xử lý';
-        } else {
-            $warning_msg[] = 'Giá trị trạng thái không hợp lệ';
         }
     }
 } catch (PDOException $e) {
@@ -423,7 +413,7 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <link rel="stylesheet" type="text/css" href="admin_style.css?v=<?php echo time(); ?>">
-    <title>Green Coffee Admin Panel - Đơn hàng đã đặt</title>
+    <title>Green Coffee Admin Panel - Đơn hàng chờ xử lý</title>
     <style>
         .flex-btn {
             display: flex;
@@ -451,20 +441,57 @@ try {
         .btn-delete {
             background: #dc3545;
         }
-        .btn-update {
+        .btn-deliver {
             background: #28a745;
         }
-        .status-cancelled {
-            color: #ff9800;
-            font-weight: bold;
-        }
-        .status-delivered {
-            color: #28a745;
-            font-weight: bold;
-        }
         .status-pending {
-            color: #17a2b8;
+            background: #fff3cd;
+            color: #856404;
+            padding: 5px 15px;
+            border-radius: 20px;
             font-weight: bold;
+            display: inline-block;
+            margin-bottom: 15px;
+        }
+        .stats-container {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .stat-box {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            min-width: 200px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            border-left: 4px solid #007bff;
+        }
+        .stat-box h3 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            color: #666;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .empty {
+            text-align: center;
+            padding: 50px 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            color: #666;
+        }
+        .empty i {
+            font-size: 48px;
+            color: #ddd;
+            margin-bottom: 15px;
+            display: block;
         }
     </style>
 </head>
@@ -474,18 +501,22 @@ try {
 
 <div class="main">
     <div class="banner">
-        <h1>Đơn hàng đã đặt</h1>
+        <h1><i class='bx bx-time-five'></i> Đơn hàng đang chờ xử lý</h1>
     </div>
 
     <div class="title2">
-        <a href="dashboard.php">Bảng điều khiển</a><span> / Đơn hàng đã đặt</span>
+        <a href="dashboard.php">Bảng điều khiển</a><span> / Đơn hàng chờ xử lý</span>
     </div>
 
+    <!-- Thống kê nhanh -->
+   
+
     <section class="order-container">
-        <h1 class="heading">Tất cả đơn hàng đã đặt</h1>
+        <h1 class="heading">Danh sách đơn hàng chờ xử lý</h1>
         <div class="box-container">
             <?php
-            $select_orders = $conn->prepare("SELECT * FROM orders ORDER BY date DESC");
+            // 🔹 CHỈ HIỂN THỊ ĐƠN HÀNG CÓ STATUS = 'pending'
+            $select_orders = $conn->prepare("SELECT * FROM orders WHERE status = 'pending' ORDER BY date DESC");
             $select_orders->execute();
 
             if ($select_orders->rowCount() > 0) {
@@ -500,20 +531,9 @@ try {
                     $method = htmlspecialchars($fetch_orders['method'] ?? '');
                     $address = htmlspecialchars($fetch_orders['address'] ?? '');
                     $payment_status = htmlspecialchars($fetch_orders['payment_status'] ?? 'pending');
+                    $final_price = isset($fetch_orders['final_price']) ? htmlspecialchars($fetch_orders['final_price']) : $price;
                     
-                    // Xác định màu sắc và văn bản hiển thị cho trạng thái
-                    $status_class = 'status-pending';
-                    $status_display = 'Đang xử lý';
-                    
-                    if ($status_text === 'delivered') {
-                        $status_class = 'status-delivered';
-                        $status_display = 'Đã giao hàng';
-                    } elseif ($status_text === 'cancelled') {
-                        $status_class = 'status-cancelled';
-                        $status_display = 'Đã hủy';
-                    }
-                    
-                    // SỬA LỖI: Đặt trong ngoặc các toán tử ternary lồng nhau
+                    // Xác định màu sắc cho trạng thái thanh toán
                     $payment_display = ($payment_status === 'complete') ? 'Đã thanh toán' : 
                                       (($payment_status === 'cancelled') ? 'Đã hủy' : 'Chưa thanh toán');
                     $payment_color = ($payment_status === 'complete') ? 'green' : 
@@ -521,46 +541,45 @@ try {
                     ?>
 
                     <div class="box">
-                        <div class="status <?php echo $status_class; ?>">
-                            <?php echo $status_display; ?>
+                        <div class="status-pending">
+                            ⏳ ĐANG CHỜ XỬ LÝ
                         </div>
 
                         <div class="detail">
-                            <p>Tên người dùng : <span><?php echo $name; ?></span></p>
-                            <p>Mã đơn hàng : <span><?php echo $order_id; ?></span></p>
-                            <p>Ngày đặt hàng : <span><?php echo $date; ?></span></p>
-                            <p>Số điện thoại : <span><?php echo $number; ?></span></p>
-                            <p>Email người dùng : <span><?php echo $email; ?></span></p>
-                            <p>Tổng tiền : <span><?php echo $price; ?></span> VND</p>
-                            <p>Phương thức thanh toán : <span><?php echo $method; ?></span></p>
-                            <p>Địa chỉ : <span><?php echo $address; ?></span></p>
-                            <p>Trạng thái thanh toán : <span style="color:<?php echo $payment_color; ?>">
+                            <p>Tên người dùng: <span><?php echo $name; ?></span></p>
+                            <p>Mã đơn hàng: <span>#<?php echo $order_id; ?></span></p>
+                            <p>Ngày đặt hàng: <span><?php echo date('d/m/Y H:i', strtotime($date)); ?></span></p>
+                            <p>Số điện thoại: <span><?php echo $number; ?></span></p>
+                            <p>Email người dùng: <span><?php echo $email; ?></span></p>
+                            <p>Tổng tiền: <span><?php echo number_format($final_price, 0, ',', '.'); ?> VNĐ</span></p>
+                            <p>Phương thức thanh toán: <span><?php echo $method; ?></span></p>
+                            <p>Địa chỉ: <span><?php echo $address; ?></span></p>
+                            <p>Trạng thái thanh toán: <span style="color:<?php echo $payment_color; ?>; font-weight:bold;">
                                 <?php echo $payment_display; ?>
                             </span></p>
                         </div>
 
+                        <!-- CHỈ BAO GỒM 3 NÚT: Giao hàng, Hủy đơn, Xóa -->
                         <form action="" method="post">
                             <input type="hidden" name="order_id" value="<?php echo $order_id; ?>">
 
-                            <label for="update_payment_<?php echo $order_id; ?>">Cập nhật trạng thái đơn hàng:</label>
-                            <select name="update_payment" id="update_payment_<?php echo $order_id; ?>">
-                                <option value="pending" <?php echo ($payment_status === 'pending' || $payment_status === 'unpaid') ? 'selected' : ''; ?>>Chờ xử lý</option>
-                                <option value="complete" <?php echo ($payment_status === 'complete') ? 'selected' : ''; ?>>Hoàn tất</option>
-                            </select>
-
                             <div class="flex-btn">
-                                <button type="submit" name="update_order" class="btn btn-update">Cập nhật đơn hàng</button>
+                                <!-- Nút Giao hàng thành công -->
+                                <button type="submit" name="deliver_order" class="btn btn-deliver" 
+                                        onclick="return confirm('Xác nhận đơn hàng #<?php echo $order_id; ?> đã giao thành công?\\n\\nKhách hàng sẽ nhận được email thông báo.')">
+                                    <i class='bx bx-check-circle'></i> Giao hàng thành công
+                                </button>
                                 
-                                <?php if ($status_text !== 'cancelled'): ?>
-                                    <button type="submit" name="cancel_order" class="btn btn-cancel" 
-                                            onclick="return confirm('Bạn có chắc muốn HỦY đơn hàng #<?php echo $order_id; ?>?\\n\\nKhách hàng sẽ nhận được email thông báo.')">
-                                        Hủy đơn hàng
-                                    </button>
-                                <?php endif; ?>
+                                <!-- Nút Hủy đơn hàng -->
+                                <button type="submit" name="cancel_order" class="btn btn-cancel" 
+                                        onclick="return confirm('Bạn có chắc muốn HỦY đơn hàng #<?php echo $order_id; ?>?\\n\\nKhách hàng sẽ nhận được email thông báo.')">
+                                    <i class='bx bx-x-circle'></i> Hủy đơn hàng
+                                </button>
                                 
+                                <!-- Nút Xóa đơn hàng -->
                                 <button type="submit" name="delete_order" class="btn btn-delete" 
                                         onclick="return confirm('⚠️ CẢNH BÁO: Bạn có chắc muốn XÓA VĨNH VIỄN đơn hàng #<?php echo $order_id; ?>?\\n\\nHành động này KHÔNG THỂ hoàn tác!\\nKhách hàng sẽ nhận được email thông báo.')">
-                                    Xóa đơn hàng
+                                    <i class='bx bx-trash'></i> Xóa đơn hàng
                                 </button>
                             </div>
                         </form>
@@ -568,7 +587,11 @@ try {
 
                 <?php }
             } else {
-                echo '<div class="empty"><p>Chưa có đơn hàng nào được đặt!</p></div>';
+                echo '<div class="empty">
+                        <i class="bx bx-check-circle"></i>
+                        <p>Không có đơn hàng nào đang chờ xử lý!</p>
+                        <p>Tất cả đơn hàng đã được xử lý hoặc không có đơn hàng mới.</p>
+                      </div>';
             }
             ?>
         </div>
